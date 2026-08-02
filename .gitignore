@@ -1,0 +1,25 @@
+# Build output
+#
+# Deliberately NOT a bare `build/`. In a sibling repository that pattern hid the
+# documentation gate and homepage generator, which the CI workflow runs — present
+# locally, green locally, absent in CI, with nothing saying why. Name the output
+# directories instead.
+dist/
+artifacts/
+bin/
+obj/
+
+# Docusaurus, if a documentation site is added here
+.docusaurus/
+docs/build/
+node_modules/
+
+# Env / secrets
+.env
+.env.*
+*.local
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
