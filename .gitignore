@@ -14,6 +14,10 @@ obj/
 docs/build/
 node_modules/
 
+# The generator's synthetic type-projection scratch directory (schema-gen.ts), always
+# created and removed within one `generate()` call — never meant to survive it.
+.contract-gen-*/
+
 # Env / secrets
 .env
 .env.*

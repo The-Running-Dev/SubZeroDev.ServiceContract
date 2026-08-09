@@ -17,10 +17,16 @@ separate for the same reason.
 
 ## Status
 
-**New and nearly empty, deliberately.** It was created before its first boundary rather than
-after, because "extract it when we need it" is a promise this ecosystem has broken twice — the
-plugin contract sat in a staging tree until extracted, and `SubZeroDev.Platform` held two
-incompatible definitions of itself because neither had a home forcing the question.
+It was created before its first boundary rather than after, because "extract it when we need it"
+is a promise this ecosystem has broken twice — the plugin contract sat in a staging tree until
+extracted, and `SubZeroDev.Platform` held two incompatible definitions of itself because neither
+had a home forcing the question.
+
+The first boundary — the Game Engine's session surface, ten `SessionStore` operations
+(`SubZeroDev.Platform`'s G1 effort, slice S2) — now lives here: [`src/rows.ts`](src/rows.ts) is
+the authored table, [`src/generate.ts`](src/generate.ts) is the generator, and
+[`mcp-tool-contract.md`](mcp-tool-contract.md) is the tool table, moved from
+`SubZeroDev.Platform`'s `docs/docs/`.
 
 The reasoning is
 [ADR-005](https://github.com/The-Running-Dev/SubZeroDev.Platform/blob/main/docs/docs/adr/ADR-005-service-contract.md)
@@ -39,13 +45,18 @@ See [`01-contract-rules.md`](01-contract-rules.md). In short:
 
 ## What is not here yet
 
-- **No boundary contract.** The first is expected to be the Game Engine's session surface — the
-  nine store operations. Its current home is `mcp-tool-contract.md` in `SubZeroDev.Platform`;
-  moving it means updating the engine's `09-clients.md`, which links it by URL, so it is a
-  deliberate follow-up rather than a silent consequence.
-- **No generator.** Rule 1 needs one, and the first boundary pays for it. A hand-written schema
-  "just for now" is how rule 1 gets lost.
-- **No version tag.** There is nothing to version yet.
+- **No real npm publish.** `@subzerodev/service-contract`'s name is fixed (`design/90-decisions.md`
+  in `SubZeroDev.Platform`, 2026-08-09), but the `@subzerodev` npm organisation reservation
+  (`SubZeroDev.Platform` issue #81) is still open, so this repository has never actually published
+  to npm — S2's publish gate is proven against a local, ephemeral registry instead
+  (`tests/publish.test.ts`). Publishing for real is a follow-up once #81 closes.
+- **No GitHub Packages access to the pinned engine.** The generator resolves
+  `@the-running-dev/game-engine@0.5.0` from a vendored tarball (`vendor/`) rather than
+  `npm.pkg.github.com`, which needs a token this repository's CI does not yet have configured.
+  See `vendor/README.md`.
+- **`SubZeroDev.GameEngine`'s own `09-clients.md`** still links the old `SubZeroDev.Platform`
+  location — that repository had unrelated uncommitted work in progress when S2 landed, so its
+  link update is a deliberate follow-up rather than bundled here.
 
 ---
 
