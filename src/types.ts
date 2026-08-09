@@ -21,7 +21,11 @@ export interface JsonObject {
 
 export type EngineErrorCode = string & { readonly __brand: "EngineErrorCode" };
 
-export type TransportErrorCode = "malformed_payload" | "unsupported_version" | "unknown_operation";
+export type TransportErrorCode =
+  | "malformed_payload"
+  | "unsupported_version"
+  | "unknown_operation"
+  | "internal_failure";
 
 export type WireErrorCode = EngineErrorCode | TransportErrorCode;
 

@@ -1,6 +1,6 @@
 {
   "name": "@subzerodev/service-contract",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "The projected wire contract between SubZeroDev products that run as separate processes.",
   "repository": {

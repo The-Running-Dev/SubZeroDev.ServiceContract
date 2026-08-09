@@ -27,7 +27,12 @@ const KNOWN_ENGINE_ERROR_CODES = [
   "migration_failed",
 ] as const;
 
-const TRANSPORT_ERROR_CODES = ["malformed_payload", "unsupported_version", "unknown_operation"] as const;
+const TRANSPORT_ERROR_CODES = [
+  "malformed_payload",
+  "unsupported_version",
+  "unknown_operation",
+  "internal_failure",
+] as const;
 
 function fail(error: GenerationError): Outcome<ContractPackage, GenerationError> {
   return { ok: false, error };
