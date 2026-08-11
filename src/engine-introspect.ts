@@ -126,3 +126,63 @@ export function resolveEngine(projectRoot: string): ResolvedEngine {
 
   return { version, entryDeclarationPath, distRoot: dirname(entryDeclarationPath), methods };
 }
+
+export interface ResolvedEngineType {
+  readonly name: string;
+  /** The `.d.ts` the declaration actually lives in — `getExportedDeclarations()` returns the
+   *  declaration itself, so a type re-exported through the package's entry point (as every
+   *  `Portable*` type is, through `index.ts`) reports its real home
+   *  (`dist/portable/format.d.ts`), which is the specifier the synthetic projection source
+   *  needs. Importing from the entry declaration instead would work for a plain re-export,
+   *  but not in general — nothing here should depend on every future type staying a plain
+   *  re-export. */
+  readonly declarationFilePath: string;
+}
+
+export interface ResolvedEngineTypes {
+  readonly version: string;
+  readonly entryDeclarationPath: string;
+  readonly distRoot: string;
+  readonly types: readonly ResolvedEngineType[];
+}
+
+export class EngineTypeNotFoundError extends Error {
+  constructor(
+    readonly packageName: string,
+    readonly typeName: string,
+  ) {
+    super(`${packageName} does not export a type named "${typeName}"`);
+    this.name = "EngineTypeNotFoundError";
+  }
+}
+
+/**
+ * Reads named type declarations — an interface or a type alias — straight off the engine's
+ * own entry declaration, the same way `resolveEngine` reads `SessionStore`'s methods.
+ * Additive: does not touch `resolveEngine` or anything it returns, so every gate built on
+ * top of that function is unaffected by this one existing.
+ */
+export function resolveEngineTypes(projectRoot: string, typeNames: readonly string[]): ResolvedEngineTypes {
+  const { entryDeclarationPath, version } = resolveEnginePackage(projectRoot);
+
+  const project = new Project({
+    compilerOptions: { strict: true, skipLibCheck: true },
+  });
+  const sourceFile = project.addSourceFileAtPath(entryDeclarationPath);
+  const exportedDeclarations = sourceFile.getExportedDeclarations();
+
+  const types: ResolvedEngineType[] = typeNames.map((typeName) => {
+    const exported = exportedDeclarations.get(typeName);
+    if (!exported || exported.length === 0) {
+      throw new EngineTypeNotFoundError(ENGINE_PACKAGE_NAME, typeName);
+    }
+    const decl = exported[0]!;
+    const kind = decl.getKind();
+    if (kind !== SyntaxKind.InterfaceDeclaration && kind !== SyntaxKind.TypeAliasDeclaration) {
+      throw new EngineTypeNotFoundError(ENGINE_PACKAGE_NAME, typeName);
+    }
+    return { name: typeName, declarationFilePath: decl.getSourceFile().getFilePath() };
+  });
+
+  return { version, entryDeclarationPath, distRoot: dirname(entryDeclarationPath), types };
+}

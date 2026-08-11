@@ -14,14 +14,37 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
-import type { ContractPackage } from "./types.js";
+import type { ContractKind, ContractPackage, ContractPackageBase } from "./types.js";
 
 export * from "./types.js";
+
+/** An artifact's `contractKind` did not match what the loader reading it expected — e.g.
+ *  `loadPublishedContract` finding `content-contract.json`'s shape at `contract.json`'s path.
+ *  A `JSON.parse`'d artifact is otherwise unverified; this is the one check a loader can make
+ *  without a full schema validator. */
+export class ContractKindMismatchError extends Error {
+  constructor(
+    readonly fileName: string,
+    readonly expected: ContractKind,
+    readonly actual: string,
+  ) {
+    super(`${fileName}: expected contractKind "${expected}", got "${actual}"`);
+    this.name = "ContractKindMismatchError";
+  }
+}
+
+function readArtifact<T extends ContractPackageBase>(fileName: string, kind: ContractKind): T {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const raw = readFileSync(join(here, fileName), "utf8");
+  const parsed = JSON.parse(raw) as T;
+  if (parsed.contractKind !== kind) {
+    throw new ContractKindMismatchError(fileName, kind, parsed.contractKind);
+  }
+  return parsed;
+}
 
 /** Reads the `ContractPackage` this package's own build produced and bundled alongside its
  *  compiled code (`dist/contract.json`) — the one thing a consumer installing this package needs. */
 export function loadPublishedContract(): ContractPackage {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const raw = readFileSync(join(here, "contract.json"), "utf8");
-  return JSON.parse(raw) as ContractPackage;
+  return readArtifact<ContractPackage>("contract.json", "rpc-surface");
 }

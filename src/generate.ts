@@ -5,6 +5,7 @@
 import { resolveEngine, EngineResolutionError } from "./engine-introspect.js";
 import { projectSchemas, requestTypeName, responseTypeName, SCHEMA_DIALECT } from "./schema-gen.js";
 import { closeSchema } from "./schema-close.js";
+import { schemaId } from "./schema-id.js";
 import type {
   AuthoredRow,
   ContractPackage,
@@ -13,7 +14,6 @@ import type {
   JsonSchemaDocument,
   OperationRow,
   Outcome,
-  SchemaRef,
 } from "./types.js";
 
 const KNOWN_ENGINE_ERROR_CODES = [
@@ -40,10 +40,6 @@ function fail(error: GenerationError): Outcome<ContractPackage, GenerationError>
 
 function majorVersion(semver: string): string {
   return semver.split(".")[0] ?? "0";
-}
-
-function schemaRef(wireVersion: string, operation: string, side: "request" | "response"): SchemaRef {
-  return `https://contracts.subzerodev.dev/service-contract/${wireVersion}/${operation}/${side}.json` as SchemaRef;
 }
 
 /** True if `node` (a closed schema, possibly `$ref`-ing into `definitions`) reaches a definition
@@ -181,8 +177,8 @@ function generateSync(input: GenerationInput): Outcome<ContractPackage, Generati
       return fail({ code: "EnvelopeReachable", schema: `${row.operation as string}/response` });
     }
 
-    const requestShape = schemaRef(input.wireVersion as string, row.operation as string, "request");
-    const responseShape = schemaRef(input.wireVersion as string, row.operation as string, "response");
+    const requestShape = schemaId("service-contract", input.wireVersion as string, row.operation as string, "request");
+    const responseShape = schemaId("service-contract", input.wireVersion as string, row.operation as string, "response");
 
     schemas.push({ $id: requestShape, $schema: SCHEMA_DIALECT as JsonSchemaDocument["$schema"], ...requestClosed });
     schemas.push({ $id: responseShape, $schema: SCHEMA_DIALECT as JsonSchemaDocument["$schema"], ...responseClosed });
@@ -198,6 +194,7 @@ function generateSync(input: GenerationInput): Outcome<ContractPackage, Generati
   }
 
   const contract: ContractPackage = {
+    contractKind: "rpc-surface",
     contractVersion: input.contractVersion,
     engineVersion: input.engineVersion,
     wireVersion: input.wireVersion,

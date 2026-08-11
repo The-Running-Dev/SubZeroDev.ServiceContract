@@ -23,6 +23,14 @@ export function responseTypeName(methodName: string): string {
   return `${pascalCase(methodName)}Response`;
 }
 
+/** `${Pascal(documentId)}Document` — deliberately not the engine's own type name. A content
+ *  document's synthetic source imports that name directly (`import type { PortableManifest }
+ *  from "./engine/..."`), so re-declaring `export type PortableManifest = PortableManifest;`
+ *  under the same name would be a duplicate-identifier error against its own import. */
+export function documentTypeName(documentId: string): string {
+  return `${pascalCase(documentId)}Document`;
+}
+
 const IMPORT_TYPE_PATTERN = /import\("([^"]+)"\)\.([A-Za-z0-9_]+)/g;
 
 /** Every field type here is already the checker's fully-resolved text for that engine parameter or
@@ -78,22 +86,31 @@ export interface RawSchema {
   readonly [keyword: string]: unknown;
 }
 
-/** One synthetic source file, one generator, one schema per named type — self-contained (no
- *  cross-document `$ref`), which is what lets each row's requestShape/responseShape stand alone.
- *  `distRoot` is the resolved engine package's `dist` directory (`ResolvedEngine.entryDeclarationPath`'s
- *  parent) — its declarations are copied alongside the synthetic file so the generator sees them as
- *  ordinary project files rather than opaque `node_modules` ones. */
-export function projectSchemas(
+/**
+ * Sets up one scratch workspace — a copy of the engine's declaration tree plus one synthetic
+ * `.d.ts` — runs `generate` over it, and cleans up. Extracted from `projectSchemas` (this
+ * module's original, and only, caller) so a second projection (a content document's, not a
+ * SessionStore operation's) can reuse the workspace mechanics without reusing
+ * `buildSyntheticSource`, which is specific to printed parameter/return type text.
+ *
+ * `distRoot` is the resolved engine package's `dist` directory
+ * (`ResolvedEngine.entryDeclarationPath`'s parent, or `ResolvedEngineTypes`'s) — its
+ * declarations are copied alongside the synthetic file so the generator sees them as ordinary
+ * project files rather than opaque `node_modules` ones.
+ */
+export function withProjectionWorkspace<T>(
   projectRoot: string,
-  methods: readonly EngineMethod[],
+  syntheticFileName: string,
+  sourceContent: string,
   distRoot: string,
-): ReadonlyMap<string, RawSchema> {
+  generate: (sourcePath: string, tsconfigPath: string) => T,
+): T {
   const dir = mkdtempSync(join(projectRoot, ".contract-gen-"));
   const engineCopyDir = join(dir, "engine");
   cpSync(distRoot, engineCopyDir, { recursive: true, filter: (src) => !src.endsWith(".js.map") });
 
-  const sourcePath = join(dir, "session-store-shapes.d.ts");
-  writeFileSync(sourcePath, buildSyntheticSource(methods, distRoot), "utf8");
+  const sourcePath = join(dir, syntheticFileName);
+  writeFileSync(sourcePath, sourceContent, "utf8");
 
   const tsconfigPath = join(dir, "tsconfig.json");
   writeFileSync(
@@ -111,24 +128,8 @@ export function projectSchemas(
     "utf8",
   );
 
-  const typeNames = methods.flatMap((m) => [requestTypeName(m.name), responseTypeName(m.name)]);
-  const results = new Map<string, RawSchema>();
   try {
-    for (const typeName of typeNames) {
-      const generator = createGenerator({
-        path: sourcePath,
-        tsconfig: tsconfigPath,
-        type: typeName,
-        topRef: false,
-        expose: "all",
-        additionalProperties: false,
-        jsDoc: "none",
-        sortProps: true,
-        skipTypeCheck: false,
-      });
-      const schema = generator.createSchema(typeName) as RawSchema;
-      results.set(typeName, schema);
-    }
+    return generate(sourcePath, tsconfigPath);
   } finally {
     // Best-effort: on Windows, a just-closed file handle (editor indexing, sync clients) can
     // still hold the directory briefly. The scratch directory is unique per call and harmless
@@ -139,5 +140,41 @@ export function projectSchemas(
       /* best-effort cleanup only */
     }
   }
+}
+
+function generateSchemas(sourcePath: string, tsconfigPath: string, typeNames: readonly string[]): Map<string, RawSchema> {
+  const results = new Map<string, RawSchema>();
+  for (const typeName of typeNames) {
+    const generator = createGenerator({
+      path: sourcePath,
+      tsconfig: tsconfigPath,
+      type: typeName,
+      topRef: false,
+      expose: "all",
+      additionalProperties: false,
+      jsDoc: "none",
+      sortProps: true,
+      skipTypeCheck: false,
+    });
+    const schema = generator.createSchema(typeName) as RawSchema;
+    results.set(typeName, schema);
+  }
   return results;
+}
+
+/** One synthetic source file, one generator, one schema per named type — self-contained (no
+ *  cross-document `$ref`), which is what lets each row's requestShape/responseShape stand alone. */
+export function projectSchemas(
+  projectRoot: string,
+  methods: readonly EngineMethod[],
+  distRoot: string,
+): ReadonlyMap<string, RawSchema> {
+  const typeNames = methods.flatMap((m) => [requestTypeName(m.name), responseTypeName(m.name)]);
+  return withProjectionWorkspace(
+    projectRoot,
+    "session-store-shapes.d.ts",
+    buildSyntheticSource(methods, distRoot),
+    distRoot,
+    (sourcePath, tsconfigPath) => generateSchemas(sourcePath, tsconfigPath, typeNames),
+  );
 }

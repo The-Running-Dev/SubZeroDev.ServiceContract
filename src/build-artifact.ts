@@ -9,19 +9,33 @@ import { join } from "node:path";
 import { generate } from "./generate.js";
 import type { ContractPackage, GenerationError, GenerationInput, Outcome } from "./types.js";
 
-export async function writeContractArtifact(
+/**
+ * Runs `produce`, and on success writes its value to `<outputDir>/<fileName>` — creating
+ * `outputDir` if needed. Writes nothing on failure, which is what makes S2.2's "the output
+ * directory is byte-identical before and after either failure" true for any generator built
+ * on top of this, not only `generate`.
+ */
+async function writeArtifact<T, E>(
   outputDir: string,
-  input: GenerationInput,
-): Promise<Outcome<ContractPackage, GenerationError>> {
-  const result = await generate(input);
+  fileName: string,
+  produce: () => Promise<Outcome<T, E>>,
+): Promise<Outcome<T, E>> {
+  const result = await produce();
   if (!result.ok) {
     return result;
   }
   if (!existsSync(outputDir)) {
     mkdirSync(outputDir, { recursive: true });
   }
-  writeFileSync(join(outputDir, "contract.json"), JSON.stringify(result.value, null, 2), "utf8");
+  writeFileSync(join(outputDir, fileName), JSON.stringify(result.value, null, 2), "utf8");
   return result;
+}
+
+export function writeContractArtifact(
+  outputDir: string,
+  input: GenerationInput,
+): Promise<Outcome<ContractPackage, GenerationError>> {
+  return writeArtifact(outputDir, "contract.json", () => generate(input));
 }
 
 /** Byte-for-byte directory contents, for S2.2's "output directory is unchanged" assertion. */

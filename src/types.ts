@@ -69,12 +69,24 @@ export interface JsonSchemaDocument {
   readonly [keyword: string]: JsonValue | undefined;
 }
 
-export interface ContractPackage {
+/**
+ * Which boundary a package governs. An artifact read off disk is `JSON.parse`'d — this is
+ * the one member that says which of this repository's package shapes it is, so a loader
+ * never infers that from the filename it happened to open (`readArtifact`, `src/index.ts`).
+ */
+export type ContractKind = "rpc-surface" | "content-document";
+
+export interface ContractPackageBase {
+  readonly contractKind: ContractKind;
   readonly contractVersion: SemanticVersion;
   readonly engineVersion: SemanticVersion;
+  readonly schemas: readonly JsonSchemaDocument[];
+}
+
+export interface ContractPackage extends ContractPackageBase {
+  readonly contractKind: "rpc-surface";
   readonly wireVersion: WireVersion;
   readonly operations: readonly OperationRow[];
-  readonly schemas: readonly JsonSchemaDocument[];
   readonly statusMapping: StatusMapping;
 }
 
