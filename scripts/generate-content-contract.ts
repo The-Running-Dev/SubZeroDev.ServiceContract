@@ -15,7 +15,7 @@ const CONTRACT_VERSION = "0.1.0";
 const CONTENT_ROOT = "https://the-running-dev.github.io/SubZeroDev.Adventures.Content/v2";
 
 const input: ContentGenerationInput = {
-  engineVersion: "0.6.0" as ContentGenerationInput["engineVersion"],
+  engineVersion: "0.6.1" as ContentGenerationInput["engineVersion"],
   contractVersion: CONTRACT_VERSION as ContentGenerationInput["contractVersion"],
   contentRoot: CONTENT_ROOT,
   rows: AUTHORED_DOCUMENT_ROWS,
