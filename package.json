@@ -25,7 +25,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && tsx scripts/generate-contract.ts",
+    "build": "tsc -p tsconfig.build.json && tsx scripts/generate-contract.ts && tsx scripts/generate-content-contract.ts",
     "typecheck": "tsc --noEmit",
     "prepack": "npm run build",
     "test": "vitest run",

@@ -240,4 +240,4 @@ function isFullyClosed(node: unknown): boolean {
   return Object.values(record).every(isFullyClosed);
 }
 
-export { isFullyClosed, reachesEnvelope };
+export { isFullyClosed, reachesEnvelope, hasTopLevelMember };

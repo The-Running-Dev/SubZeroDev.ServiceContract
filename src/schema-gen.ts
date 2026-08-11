@@ -7,7 +7,7 @@
 import { mkdtempSync, writeFileSync, rmSync, cpSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { createGenerator } from "ts-json-schema-generator";
-import type { EngineMethod } from "./engine-introspect.js";
+import type { EngineMethod, ResolvedEngineType } from "./engine-introspect.js";
 
 export const SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema";
 
@@ -123,7 +123,7 @@ export function withProjectionWorkspace<T>(
         strict: true,
         skipLibCheck: true,
       },
-      include: ["*.d.ts", "engine/**/*.d.ts"],
+      include: ["*.d.ts"],
     }),
     "utf8",
   );
@@ -142,7 +142,11 @@ export function withProjectionWorkspace<T>(
   }
 }
 
-function generateSchemas(sourcePath: string, tsconfigPath: string, typeNames: readonly string[]): Map<string, RawSchema> {
+export function generateSchemas(
+  sourcePath: string,
+  tsconfigPath: string,
+  typeNames: readonly string[],
+): Map<string, RawSchema> {
   const results = new Map<string, RawSchema>();
   for (const typeName of typeNames) {
     const generator = createGenerator({
@@ -174,6 +178,45 @@ export function projectSchemas(
     projectRoot,
     "session-store-shapes.d.ts",
     buildSyntheticSource(methods, distRoot),
+    distRoot,
+    (sourcePath, tsconfigPath) => generateSchemas(sourcePath, tsconfigPath, typeNames),
+  );
+}
+
+/** A named type's own declaration file, copied alongside the synthetic source at
+ *  `./engine/<relative path>.js` — the same `distRoot`-relative layout `buildSyntheticSource`'s
+ *  `rewrite` produces from printed type text, but built directly from
+ *  `ResolvedEngineType.declarationFilePath` since a document type has no printed parameter or
+ *  return type to parse a specifier out of. */
+function buildDocumentSource(types: readonly ResolvedEngineType[], distRoot: string): string {
+  const lines: string[] = [];
+  for (const type of types) {
+    const relativeSpecifier = relative(distRoot, type.declarationFilePath)
+      .replace(/\.d\.ts$/, "")
+      .split(sep)
+      .join("/");
+    const localSpecifier = `./engine/${relativeSpecifier}.js`;
+    lines.push(`import type { ${type.name} } from "${localSpecifier}";`);
+    lines.push(`export type ${documentTypeName(type.name)} = ${type.name};`);
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+/** One synthetic source file, one generator, one schema per named engine type — the content
+ *  contract's analogue of `projectSchemas`, sharing its workspace mechanics
+ *  (`withProjectionWorkspace`) and its generator loop (`generateSchemas`) but not its
+ *  SessionStore-specific synthetic-source builder. */
+export function projectDocumentSchemas(
+  projectRoot: string,
+  types: readonly ResolvedEngineType[],
+  distRoot: string,
+): ReadonlyMap<string, RawSchema> {
+  const typeNames = types.map((t) => documentTypeName(t.name));
+  return withProjectionWorkspace(
+    projectRoot,
+    "content-document-shapes.d.ts",
+    buildDocumentSource(types, distRoot),
     distRoot,
     (sourcePath, tsconfigPath) => generateSchemas(sourcePath, tsconfigPath, typeNames),
   );

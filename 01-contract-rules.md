@@ -58,11 +58,19 @@ its manifest and result-envelope schemas.
 **A major version is a stability claim.** Do not reach `1.0.0` on a contract whose generator has
 never rejected anything: a schema that has never failed is not known to constrain anything.
 
+**A document contract's version segment is projected, the same as its shape.** Where a
+request/response contract authors a `wireVersion` and stamps it into every `$id`, a static-content
+contract instead *derives* its `$id` version segment from the published format's own version field
+(a literal type the source already declares — e.g. `PortableManifest.formatVersion`). Authoring the
+two independently would let them drift exactly the way rule 1 exists to prevent, just one level up:
+not "the schema disagrees with the type," but "the path disagrees with the schema."
+
 ## 5. What belongs here, and what does not
 
 | Here | Not here |
 |---|---|
 | Contracts between products that run as separate processes | Contracts between a host and its plugins — that is `SubZeroDev.PluginContract` |
+| A static-content publish/fetch boundary between two products — one publishes documents, another fetches them at runtime; still two processes, still versioned, still worth a projected schema | How a publisher hosts or deploys those documents (Pages, a CDN, a bucket) — that is the publisher's own build and CI, not a rule this repository states |
 | The schemas consumers pin, and the rules above | Any product's internal types |
 | Versioning and compatibility policy for those contracts | Implementation of either side |
 

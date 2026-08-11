@@ -14,7 +14,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
-import type { ContractKind, ContractPackage, ContractPackageBase } from "./types.js";
+import type { ContentContractPackage, ContractKind, ContractPackage, ContractPackageBase } from "./types.js";
 
 export * from "./types.js";
 
@@ -47,4 +47,10 @@ function readArtifact<T extends ContractPackageBase>(fileName: string, kind: Con
  *  compiled code (`dist/contract.json`) — the one thing a consumer installing this package needs. */
 export function loadPublishedContract(): ContractPackage {
   return readArtifact<ContractPackage>("contract.json", "rpc-surface");
+}
+
+/** Reads the `ContentContractPackage` this package's own build produced and bundled alongside
+ *  its compiled code (`dist/content-contract.json`). */
+export function loadPublishedContentContract(): ContentContractPackage {
+  return readArtifact<ContentContractPackage>("content-contract.json", "content-document");
 }

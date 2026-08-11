@@ -7,7 +7,16 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { generate } from "./generate.js";
-import type { ContractPackage, GenerationError, GenerationInput, Outcome } from "./types.js";
+import { generateContent } from "./generate-content.js";
+import type {
+  ContentContractPackage,
+  ContentGenerationError,
+  ContentGenerationInput,
+  ContractPackage,
+  GenerationError,
+  GenerationInput,
+  Outcome,
+} from "./types.js";
 
 /**
  * Runs `produce`, and on success writes its value to `<outputDir>/<fileName>` — creating
@@ -36,6 +45,13 @@ export function writeContractArtifact(
   input: GenerationInput,
 ): Promise<Outcome<ContractPackage, GenerationError>> {
   return writeArtifact(outputDir, "contract.json", () => generate(input));
+}
+
+export function writeContentContractArtifact(
+  outputDir: string,
+  input: ContentGenerationInput,
+): Promise<Outcome<ContentContractPackage, ContentGenerationError>> {
+  return writeArtifact(outputDir, "content-contract.json", () => generateContent(input));
 }
 
 /** Byte-for-byte directory contents, for S2.2's "output directory is unchanged" assertion. */

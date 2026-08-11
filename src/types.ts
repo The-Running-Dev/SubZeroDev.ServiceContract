@@ -110,3 +110,70 @@ export type GenerationError =
   | { readonly code: "DeterminismProfileInRow"; readonly operation: string }
   | { readonly code: "DuplicateOperationId"; readonly first: string; readonly second: string }
   | { readonly code: "EngineResolutionFailed"; readonly packageName: string; readonly registry: string };
+
+// --- Content-document contract (governs static JSON a product publishes and another fetches
+// at runtime — a structurally different boundary from the RPC surface above, so it gets its
+// own row/schema/error vocabulary rather than reusing AuthoredRow/OperationRow/GenerationError,
+// none of which have a request/response pair to fit into.) ---
+
+export type DocumentId = string & { readonly __brand: "DocumentId" };
+export type EngineTypeName = string & { readonly __brand: "EngineTypeName" };
+
+export type DocumentCardinality = "exactly-one" | "one-per-campaign";
+
+/**
+ * One published document shape. `documentId` names the document's *role* in the content set
+ * ("manifest", "campaign"), not a file — how many files of a shape a publisher writes is data
+ * the manifest carries, not a rule this contract states.
+ */
+export interface AuthoredDocumentRow {
+  readonly documentId: DocumentId;
+  /** The exported engine type this document's schema is projected from (rule 1). */
+  readonly engineType: EngineTypeName;
+  /** Members the engine declares that do not travel — same mechanism as `AuthoredRow.narrowings`,
+   *  without a `side`: a document has exactly one shape, not a request/response pair. */
+  readonly narrowings: readonly string[];
+  readonly cardinality: DocumentCardinality;
+  /** Only for `cardinality: "exactly-one"` — the bootstrap document a consumer must be able to
+   *  find with no prior fetch. A `one-per-campaign` document's location comes from the manifest
+   *  a consumer already fetched, so restating it here would be a second home for the same fact. */
+  readonly publishedPath?: string;
+}
+
+export interface ContentDocumentRow extends AuthoredDocumentRow {
+  readonly documentShape: SchemaRef;
+}
+
+export interface ContentContractPackage extends ContractPackageBase {
+  readonly contractKind: "content-document";
+  /** The published format's own version — projected from the engine's literal `formatVersion`
+   *  type, never authored, and independent of `contractVersion` (this contract's own version). */
+  readonly formatVersion: number;
+  /** Where these documents are published, relative to `SCHEMA_HOST`'s owner — the base a
+   *  fetcher resolves `publishedPath` and manifest-listed files against. Not itself part of any
+   *  document's shape; carried here because a runtime fetcher needs a base URL and a committed
+   *  fallback needs to know what it is a fallback *for*. */
+  readonly contentRoot: string;
+  readonly documents: readonly ContentDocumentRow[];
+  readonly digestAlgorithm: "sha-256";
+}
+
+export interface ContentGenerationInput {
+  readonly engineVersion: SemanticVersion;
+  readonly contractVersion: SemanticVersion;
+  readonly contentRoot: string;
+  readonly rows: readonly AuthoredDocumentRow[];
+}
+
+export type ContentGenerationError =
+  | { readonly code: "EngineTypeMissing"; readonly typeName: string }
+  | { readonly code: "KindCoverageIncomplete"; readonly kindId: string }
+  | { readonly code: "DocumentSchemaOpen"; readonly document: string }
+  | { readonly code: "OpaqueContentPayload"; readonly document: string; readonly kindId: string }
+  | { readonly code: "FormatVersionNotConst"; readonly document: string }
+  | { readonly code: "FormatVersionMismatch"; readonly first: string; readonly second: string }
+  | { readonly code: "ContentRootVersionMismatch"; readonly contentRoot: string; readonly formatVersion: number }
+  | { readonly code: "ManifestEntryUnidentified"; readonly missingField: string }
+  | { readonly code: "DuplicateDocumentId"; readonly first: string; readonly second: string }
+  | { readonly code: "NarrowingUnknownField"; readonly document: string; readonly field: string }
+  | { readonly code: "EnvelopeReachable"; readonly document: string };

@@ -33,6 +33,30 @@ The reasoning is
 in `SubZeroDev.Platform`. This repository states the operative rules and does not restate that
 reasoning.
 
+**A second, structurally different boundary now lives here too:** the campaign JSON
+`SubZeroDev.Adventures.Content` publishes and `SubZeroDev.Adventures` fetches at runtime.
+[`src/documents.ts`](src/documents.ts) is the authored table (two documents: the manifest a
+fetcher reads first, and the campaign document it lists), [`src/generate-content.ts`](src/generate-content.ts)
+is the generator, and [`src/content-merge.ts`](src/content-merge.ts) exists for one reason:
+the engine's three kinds (story-graph, world-graph, simulation) each declare their own,
+unrelated `ComparisonOperator` type, and `ts-json-schema-generator` keys its definitions
+dictionary by bare name — requesting a schema for all three kinds in one call throws. Each
+kind is projected alone (proven to work) and the three closed schemas are merged into one
+`anyOf` document by namespacing their definitions, rather than by renaming anything in the
+engine. This keeps the property the content contract's crux gate depends on: one schema, one
+`validate()` call, every arm fully closed — content is never validated as "any JSON."
+
+That crux gate is `OpaqueContentPayload` (`src/content-gates.ts`): no arm may resolve
+`campaign.content` to the shared, unconstrained `JsonValue` fallback. It is checked
+end-to-end, not only unit-level — `tests/generate-content.test.ts` compiles the real
+generated schemas with `ajv` and confirms a campaign document with the wrong kind's content
+shape is rejected.
+
+The engine's portable campaign format (`src/portable/format.ts` upstream) was graduated out
+of spike status specifically so this contract would have a real source of truth to project
+from — rule 1 does not tolerate a contract built on a type whose own header says "not a
+contract."
+
 ## The rules
 
 See [`01-contract-rules.md`](01-contract-rules.md). In short:
@@ -57,6 +81,17 @@ See [`01-contract-rules.md`](01-contract-rules.md). In short:
 - **`SubZeroDev.GameEngine`'s own `09-clients.md`** still links the old `SubZeroDev.Platform`
   location — that repository had unrelated uncommitted work in progress when S2 landed, so its
   link update is a deliberate follow-up rather than bundled here.
+- **`contracts.subzerodev.dev` does not resolve.** Every `$id` in both contracts is an
+  identifier, not a fetchable URL, for the same reason the npm publish above is not real yet.
+  Neither this file nor any code here should be read as claiming those schemas are actually
+  served at those addresses.
+- **No CI workflow runs any of this.** `.github/` holds only `ISSUE_TEMPLATE/`. Every gate in
+  both contracts — the ten `SessionStore` invariants and the eleven content-document ones —
+  fires only when a human runs `npm run build && npm test`.
+- **The content contract's `contentRoot` field is a judgment call, not an obvious fit for rule
+  5's table.** It names where documents are published, which reads like "implementation," not
+  "shape" — but a runtime fetcher needs a base URL, and a committed fallback copy needs to know
+  what it is a fallback *for*. Kept for now; revisit if it proves to be the wrong home.
 
 ---
 

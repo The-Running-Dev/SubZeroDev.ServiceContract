@@ -27,7 +27,12 @@ function run(args: string[], cwd: string): Promise<{ code: number | null; out: s
 describe("S2.9 — publish path against a local registry", () => {
   it(
     "publishes once, refuses to republish the same version, and a consumer resolves and reads operations",
-    { timeout: 60_000 },
+    // 60s was enough when `prepack` ran one generator (SessionStore). It now runs two --
+    // this test triggers `npm publish`'s prepack twice (publish, then the refused republish)
+    // plus an install, and the content-document generator alone (four separate
+    // ts-json-schema-generator invocations: the manifest, and three per-kind campaign
+    // projections merged in `content-merge.ts`) adds real time, not overhead to shave.
+    { timeout: 180_000 },
     async () => {
       expect(existsSync(join(REPO_ROOT, "dist", "contract.json"))).toBe(true);
 
@@ -60,10 +65,18 @@ describe("S2.9 — publish path against a local registry", () => {
         const modPath = join(installDir, "node_modules", "@subzerodev", "service-contract", "dist", "index.js");
         const mod = (await import(pathToFileURL(modPath).href)) as {
           loadPublishedContract: () => { operations: unknown[]; engineVersion: string };
+          loadPublishedContentContract: () => { documents: unknown[]; formatVersion: number };
         };
         const contract = mod.loadPublishedContract();
         expect(contract.operations.length).toBe(10);
         expect(contract.engineVersion).toBe("0.6.0");
+
+        // Both artifacts ship in the same package, from the same publish -- a consumer that
+        // only ever asked for the RPC contract should not silently also get a stale or
+        // missing content contract because prepack only wrote one of the two.
+        const contentContract = mod.loadPublishedContentContract();
+        expect(contentContract.documents.length).toBe(2);
+        expect(contentContract.formatVersion).toBe(2);
       } finally {
         await registry.close();
       }
