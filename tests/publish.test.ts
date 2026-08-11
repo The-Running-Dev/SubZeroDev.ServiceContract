@@ -63,7 +63,7 @@ describe("S2.9 — publish path against a local registry", () => {
         };
         const contract = mod.loadPublishedContract();
         expect(contract.operations.length).toBe(10);
-        expect(contract.engineVersion).toBe("0.5.0");
+        expect(contract.engineVersion).toBe("0.6.0");
       } finally {
         await registry.close();
       }

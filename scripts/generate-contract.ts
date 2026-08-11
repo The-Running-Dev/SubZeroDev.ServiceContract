@@ -9,7 +9,7 @@ import { AUTHORED_ROWS, STATUS_MAPPING_ENTRIES } from "../src/rows.js";
 import type { GenerationInput } from "../src/types.js";
 
 const CONTRACT_VERSION = "0.2.0";
-const ENGINE_VERSION = "0.5.0";
+const ENGINE_VERSION = "0.6.0";
 const WIRE_VERSION = "v1";
 
 const input: GenerationInput = {
