@@ -1,5 +1,5 @@
 /**
- * The authored row set for the pinned engine (`@the-running-dev/game-engine@0.5.0`, ten
+ * The authored row set for the pinned engine (`@the-running-dev/game-engine@0.8.0`, ten
  * `SessionStore` operations — `90-decisions.md`, 2026-08-08, "G1 pins the engine release S1 cuts
  * from `main`"). `operation` and `mcpTool` are authored, not derived: nothing in `SessionStore`'s
  * declaration says `submitAction` is `choose`, and the naming here matches the table already
@@ -15,6 +15,13 @@
  * throw, reasoned from each method's role (a query taking a session id can raise
  * `unknown_session`; only `loadGame` can raise the two migration codes). `storage_failure` is
  * declared and unreachable in G1 (`20-contract.md`) and so is never listed.
+ *
+ * `concurrent_modification` — the ninth code, added by the engine at `0.8.0` — is listed on
+ * exactly the three operations that persist a session record, which is where the engine raises
+ * it: its `writeSession` translates a host's `SessionPersistenceConflict` into that code, and
+ * only `createSession`, `submitAction`, and `loadGame` call it. `saveGame` writes through
+ * `writeSave`, which raises `storage_failure` and never this; `previewAction` persists nothing
+ * by contract; `resumeSession` reads.
  */
 import type { AuthoredRow, NarrowedField, WireErrorCode } from "./types.js";
 
@@ -76,7 +83,7 @@ export const AUTHORED_ROWS: readonly AuthoredRow[] = [
     // `start_game`'s args are `{ campaignId, seed?, profileId? }` — narrower than the engine's own
     // `CreateSessionConfig`, which also carries `audience` (`mcp-tool-contract.md`).
     narrowings: [{ side: "request", field: "audience" }],
-    reachableErrors: [code("unknown_campaign"), code("unknown_kind")],
+    reachableErrors: [code("unknown_campaign"), code("unknown_kind"), code("concurrent_modification")],
   },
   {
     operation: op("resume-session"),
@@ -90,7 +97,7 @@ export const AUTHORED_ROWS: readonly AuthoredRow[] = [
     storeMethod: method("submitAction"),
     mcpTool: tool("choose"),
     narrowings: NONE,
-    reachableErrors: [code("unknown_session"), code("invalid_state")],
+    reachableErrors: [code("unknown_session"), code("invalid_state"), code("concurrent_modification")],
   },
   {
     operation: op("save-game"),
@@ -106,13 +113,21 @@ export const AUTHORED_ROWS: readonly AuthoredRow[] = [
     storeMethod: method("loadGame"),
     mcpTool: tool("load_game"),
     narrowings: NONE,
-    reachableErrors: [code("unknown_save"), code("save_requires_migration"), code("migration_failed")],
+    reachableErrors: [
+      code("unknown_save"),
+      code("save_requires_migration"),
+      code("migration_failed"),
+      code("concurrent_modification"),
+    ],
   },
 ];
 
 /** Every declared `SessionStoreErrorCode` plus every `TransportErrorCode`, and no other entry
  *  (invariant 2). `storage_failure` maps to `503` though unreachable in G1 — the mapping is
- *  required to exist, not to be reachable (`20-contract.md`, "Dispatch — `DispatchFailure`"). */
+ *  required to exist, not to be reachable (`20-contract.md`, "Dispatch — `DispatchFailure`").
+ *  `concurrent_modification` maps to `409`: it is a write losing to another writer, which the
+ *  caller resolves by re-reading and retrying — the same conflict semantics the other three
+ *  `409`s carry, not a `503`'s "the store itself is unavailable". */
 export const STATUS_MAPPING_ENTRIES = [
   { code: code("unknown_session"), status: 404 as const },
   { code: code("unknown_save"), status: 404 as const },
@@ -122,6 +137,7 @@ export const STATUS_MAPPING_ENTRIES = [
   { code: code("unknown_kind"), status: 409 as const },
   { code: code("save_requires_migration"), status: 409 as const },
   { code: code("migration_failed"), status: 409 as const },
+  { code: code("concurrent_modification"), status: 409 as const },
   { code: code("malformed_payload"), status: 400 as const },
   { code: code("unsupported_version"), status: 404 as const },
   { code: code("unknown_operation"), status: 404 as const },

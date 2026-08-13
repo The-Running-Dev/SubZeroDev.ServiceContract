@@ -75,9 +75,11 @@ See [`01-contract-rules.md`](01-contract-rules.md). In short:
   to npm — S2's publish gate is proven against a local, ephemeral registry instead
   (`tests/publish.test.ts`). Publishing for real is a follow-up once #81 closes.
 - **No GitHub Packages access to the pinned engine.** The generator resolves
-  `@the-running-dev/game-engine@0.5.0` from a vendored tarball (`vendor/`) rather than
+  `@the-running-dev/game-engine@0.8.0` from a vendored tarball (`vendor/`) rather than
   `npm.pkg.github.com`, which needs a token this repository's CI does not yet have configured.
-  See `vendor/README.md`.
+  Unlike the `0.6.1` this replaces, `0.8.0` *is* published to GitHub Packages — so the tarball is
+  now a CI-credential workaround only, not the sole way to obtain the engine. See
+  `vendor/README.md`.
 - **`SubZeroDev.GameEngine`'s own `09-clients.md`** still links the old `SubZeroDev.Platform`
   location — that repository had unrelated uncommitted work in progress when S2 landed, so its
   link update is a deliberate follow-up rather than bundled here.
