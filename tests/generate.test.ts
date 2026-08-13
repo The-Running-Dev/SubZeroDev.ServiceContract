@@ -17,9 +17,16 @@ import { AUTHORED_ROWS, STATUS_MAPPING_ENTRIES } from "../src/rows.js";
 import { writeContractArtifact, snapshotDir } from "../src/build-artifact.js";
 import type { AuthoredRow, GenerationInput } from "../src/types.js";
 
+/** The version the generator will actually resolve out of `node_modules`. Read once, here,
+ *  rather than written as a literal: a literal is a second statement of which engine this suite
+ *  runs against, and it drifted from the real one for three releases (`0.5.0` here while the
+ *  pin moved to `0.6.1` and then `0.8.0`) without a single test noticing — which is the very
+ *  drift `EngineVersionMismatch` below now refuses. */
+const RESOLVED_ENGINE_VERSION = resolveEngine(process.cwd()).version;
+
 function baseInput(overrides: Partial<GenerationInput> = {}): GenerationInput {
   return {
-    engineVersion: "0.5.0" as GenerationInput["engineVersion"],
+    engineVersion: RESOLVED_ENGINE_VERSION as GenerationInput["engineVersion"],
     contractVersion: "0.1.0" as GenerationInput["contractVersion"],
     wireVersion: "v1" as GenerationInput["wireVersion"],
     rows: AUTHORED_ROWS,
@@ -35,7 +42,50 @@ describe("S2.1 — generate produces a ContractPackage matching the pinned engin
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.operations.length).toBe(engine.methods.length);
-    expect(result.value.engineVersion).toBe("0.5.0");
+    expect(result.value.engineVersion).toBe(engine.version);
+  });
+});
+
+describe("engine version gate — the artifact cannot claim a version the resolved engine does not have", () => {
+  it("fails with EngineVersionMismatch when the authored engineVersion is not the resolved one", async () => {
+    const result = await generate(baseInput({ engineVersion: "9.9.9" as GenerationInput["engineVersion"] }));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("EngineVersionMismatch");
+  });
+
+  it("names both versions, so the failure says which pin disagrees with which install", async () => {
+    const result = await generate(baseInput({ engineVersion: "9.9.9" as GenerationInput["engineVersion"] }));
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.error.code === "EngineVersionMismatch") {
+      expect(result.error.authored).toBe("9.9.9");
+      expect(result.error.resolved).toBe(RESOLVED_ENGINE_VERSION);
+    } else {
+      expect.unreachable("expected EngineVersionMismatch");
+    }
+  });
+
+  it("passes when the authored version is the resolved one", async () => {
+    const result = await generate(baseInput());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.engineVersion).toBe(RESOLVED_ENGINE_VERSION);
+  });
+
+  it("writes nothing when the versions disagree", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "version-gate-"));
+    try {
+      const before = snapshotDir(dir);
+      const result = await writeContractArtifact(
+        dir,
+        baseInput({ engineVersion: "9.9.9" as GenerationInput["engineVersion"] }),
+      );
+      expect(result.ok).toBe(false);
+      expect(snapshotDir(dir)).toEqual(before);
+      expect(existsSync(join(dir, "contract.json"))).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

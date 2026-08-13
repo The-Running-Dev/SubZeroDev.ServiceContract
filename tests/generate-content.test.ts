@@ -8,6 +8,7 @@ const Ajv2020 = require("ajv/dist/2020.js") as new (opts?: { strict?: boolean })
 };
 
 import { generateContent } from "../src/generate-content.js";
+import { resolveEngine } from "../src/engine-introspect.js";
 import { AUTHORED_DOCUMENT_ROWS, KNOWN_KIND_IDS } from "../src/documents.js";
 import { writeContentContractArtifact } from "../src/build-artifact.js";
 import { mergeKindSchemas } from "../src/content-merge.js";
@@ -17,9 +18,12 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+/** Read, not written as a literal — see the same constant in `generate.test.ts` for why. */
+const RESOLVED_ENGINE_VERSION = resolveEngine(process.cwd()).version;
+
 function baseInput(overrides: Partial<ContentGenerationInput> = {}): ContentGenerationInput {
   return {
-    engineVersion: "0.6.0" as ContentGenerationInput["engineVersion"],
+    engineVersion: RESOLVED_ENGINE_VERSION as ContentGenerationInput["engineVersion"],
     contractVersion: "0.1.0" as ContentGenerationInput["contractVersion"],
     contentRoot: "https://the-running-dev.github.io/SubZeroDev.Adventures.Content/v2",
     rows: AUTHORED_DOCUMENT_ROWS,
@@ -261,5 +265,34 @@ describe("S? — schema-shape gates (unit level, against synthetic fixtures — 
       properties: { id: { type: "string" }, version: { type: "string" }, digest: { type: "string" } },
     };
     expect(firstMissingManifestEntryField(items)).toBeUndefined();
+  });
+});
+
+describe("engine version gate — the content artifact cannot claim a version the resolved engine does not have", () => {
+  it("fails with EngineVersionMismatch when the authored engineVersion is not the resolved one", async () => {
+    const result = await generateContent(
+      baseInput({ engineVersion: "9.9.9" as ContentGenerationInput["engineVersion"] }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.error.code === "EngineVersionMismatch") {
+      expect(result.error.authored).toBe("9.9.9");
+      expect(result.error.resolved).toBe(RESOLVED_ENGINE_VERSION);
+    } else {
+      expect.unreachable("expected EngineVersionMismatch");
+    }
+  });
+
+  it("writes nothing when the versions disagree", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "content-version-gate-"));
+    try {
+      const result = await writeContentContractArtifact(
+        dir,
+        baseInput({ engineVersion: "9.9.9" as ContentGenerationInput["engineVersion"] }),
+      );
+      expect(result.ok).toBe(false);
+      expect(existsSync(join(dir, "content-contract.json"))).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

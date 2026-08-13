@@ -79,6 +79,14 @@ function resolveEnginePackage(projectRoot: string): { entryDeclarationPath: stri
   return { entryDeclarationPath, version: packageJson.version };
 }
 
+/** The resolved package's version, and nothing else — a `package.json` read with no TypeScript
+ *  project behind it, so a generator can check the pin it was handed against the install it will
+ *  actually project from *before* paying for any projection. Throws `EngineResolutionError` on an
+ *  unresolvable package, exactly as the fuller resolvers do. */
+export function resolveEngineVersion(projectRoot: string): string {
+  return resolveEnginePackage(projectRoot).version;
+}
+
 /** Reads the `SessionStore` interface's method names and parameter names straight off the engine's
  *  own declaration — nothing here is hand-maintained, so it cannot fall behind the engine.
  *  `projectRoot` is the directory `node_modules` resolution should start from. */

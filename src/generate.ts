@@ -83,6 +83,20 @@ function generateSync(input: GenerationInput): Outcome<ContractPackage, Generati
     throw error;
   }
 
+  // The artifact may not claim an engine version the resolved engine does not have. `engineVersion`
+  // is authored (a constant in `scripts/generate-contract.ts`) while every schema below is projected
+  // from whatever `node_modules` actually holds, so without this the two are free to disagree and
+  // the artifact states the disagreement as fact — a hand-maintained second definition of which
+  // engine this is, which is precisely what rule 1 forbids. Observed for real: a tree pinned at
+  // `0.6.1` with `0.5.0` installed, which this gate would have named immediately.
+  if (input.engineVersion !== engine.version) {
+    return fail({
+      code: "EngineVersionMismatch",
+      authored: input.engineVersion as string,
+      resolved: engine.version,
+    });
+  }
+
   // Invariant 1 — arity: the row set exactly covers the engine's exported methods.
   const engineMethodNames = new Set(engine.methods.map((m) => m.name));
   const rowMethodNames = new Set(input.rows.map((r) => r.storeMethod as string));
