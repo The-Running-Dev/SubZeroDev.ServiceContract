@@ -4,7 +4,7 @@
  * `ContentGenerationError` and produces no artifact, the same discipline `generate` follows.
  */
 import { relative, sep } from "node:path";
-import { resolveEngineTypes, EngineTypeNotFoundError } from "./engine-introspect.js";
+import { resolveEngineTypes, resolveEngineVersion, EngineTypeNotFoundError } from "./engine-introspect.js";
 import { projectDocumentSchemas, generateSchemas, documentTypeName, withProjectionWorkspace, SCHEMA_DIALECT } from "./schema-gen.js";
 import { closeSchema } from "./schema-close.js";
 import { schemaId } from "./schema-id.js";
@@ -79,6 +79,18 @@ export function generateContent(
 }
 
 function generateContentSync(input: ContentGenerationInput): Outcome<ContentContractPackage, ContentGenerationError> {
+  // Same gate, and the same reasoning, as the RPC generator's `EngineVersionMismatch` — this
+  // artifact stamps an authored `engineVersion` too. Checked first, off a bare `package.json`
+  // read, so an engine that disagrees with its pin costs nothing to discover.
+  const resolvedVersion = resolveEngineVersion(process.cwd());
+  if (input.engineVersion !== resolvedVersion) {
+    return fail({
+      code: "EngineVersionMismatch",
+      authored: input.engineVersion as string,
+      resolved: resolvedVersion,
+    });
+  }
+
   const seen = new Map<string, AuthoredDocumentRow>();
   for (const row of input.rows) {
     const key = row.documentId as string;

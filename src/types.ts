@@ -109,7 +109,8 @@ export type GenerationError =
   | { readonly code: "EnvelopeReachable"; readonly schema: string }
   | { readonly code: "DeterminismProfileInRow"; readonly operation: string }
   | { readonly code: "DuplicateOperationId"; readonly first: string; readonly second: string }
-  | { readonly code: "EngineResolutionFailed"; readonly packageName: string; readonly registry: string };
+  | { readonly code: "EngineResolutionFailed"; readonly packageName: string; readonly registry: string }
+  | { readonly code: "EngineVersionMismatch"; readonly authored: string; readonly resolved: string };
 
 // --- Content-document contract (governs static JSON a product publishes and another fetches
 // at runtime — a structurally different boundary from the RPC surface above, so it gets its
@@ -176,4 +177,5 @@ export type ContentGenerationError =
   | { readonly code: "ManifestEntryUnidentified"; readonly missingField: string }
   | { readonly code: "DuplicateDocumentId"; readonly first: string; readonly second: string }
   | { readonly code: "NarrowingUnknownField"; readonly document: string; readonly field: string }
-  | { readonly code: "EnvelopeReachable"; readonly document: string };
+  | { readonly code: "EnvelopeReachable"; readonly document: string }
+  | { readonly code: "EngineVersionMismatch"; readonly authored: string; readonly resolved: string };
