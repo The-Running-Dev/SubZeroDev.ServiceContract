@@ -69,7 +69,7 @@ describe("S2.9 — publish path against a local registry", () => {
         };
         const contract = mod.loadPublishedContract();
         expect(contract.operations.length).toBe(10);
-        expect(contract.engineVersion).toBe("0.6.1");
+        expect(contract.engineVersion).toBe("0.8.0");
 
         // Both artifacts ship in the same package, from the same publish -- a consumer that
         // only ever asked for the RPC contract should not silently also get a stale or

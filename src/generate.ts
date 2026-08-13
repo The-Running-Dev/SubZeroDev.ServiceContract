@@ -25,6 +25,7 @@ const KNOWN_ENGINE_ERROR_CODES = [
   "unknown_kind",
   "save_requires_migration",
   "migration_failed",
+  "concurrent_modification",
 ] as const;
 
 const TRANSPORT_ERROR_CODES = [
