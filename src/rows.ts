@@ -142,4 +142,6 @@ export const STATUS_MAPPING_ENTRIES = [
   { code: code("unsupported_version"), status: 404 as const },
   { code: code("unknown_operation"), status: 404 as const },
   { code: code("internal_failure"), status: 500 as const },
+  { code: code("session_expired"), status: 404 as const },
+  { code: code("save_expired"), status: 404 as const },
 ];
