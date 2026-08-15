@@ -316,6 +316,58 @@ describe("S2.8 — one schema dialect, and ajv enforces the closed-schema gate f
   });
 });
 
+describe("Platform G2 S2.1/S2.2 — the widened status mapping (concurrent_modification, session_expired, save_expired)", () => {
+  it("emits a status mapping with nine EngineErrorCode entries and six TransportErrorCode entries", async () => {
+    const result = await generate(baseInput());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const engineCodes = [
+      "unknown_session",
+      "unknown_save",
+      "storage_failure",
+      "unknown_campaign",
+      "invalid_state",
+      "unknown_kind",
+      "save_requires_migration",
+      "migration_failed",
+      "concurrent_modification",
+    ];
+    const transportCodes = [
+      "malformed_payload",
+      "unsupported_version",
+      "unknown_operation",
+      "internal_failure",
+      "session_expired",
+      "save_expired",
+    ];
+    const mapped = new Set(result.value.statusMapping.entries.map((e) => e.code as string));
+    for (const c of engineCodes) expect(mapped.has(c)).toBe(true);
+    for (const c of transportCodes) expect(mapped.has(c)).toBe(true);
+    expect(mapped.size).toBe(engineCodes.length + transportCodes.length);
+  });
+
+  it("maps concurrent_modification to 409, session_expired and save_expired to 404", async () => {
+    const result = await generate(baseInput());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const byCode = new Map(result.value.statusMapping.entries.map((e) => [e.code as string, e.status]));
+    expect(byCode.get("concurrent_modification")).toBe(409);
+    expect(byCode.get("session_expired")).toBe(404);
+    expect(byCode.get("save_expired")).toBe(404);
+  });
+
+  it("fails with ErrorCodeUncovered naming concurrent_modification when its entry is deleted", async () => {
+    const entries = STATUS_MAPPING_ENTRIES.filter((e) => e.code !== "concurrent_modification");
+    const result = await generate(baseInput({ statusMapping: { entries } }));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("ErrorCodeUncovered");
+    if (result.error.code === "ErrorCodeUncovered") {
+      expect(result.error.wireErrorCode).toBe("concurrent_modification");
+    }
+  });
+});
+
 describe("S2.10 — the generator is deterministic", () => {
   it("running twice over an unchanged row set and engine produces byte-identical artifacts", async () => {
     const [first, second] = await Promise.all([generate(baseInput()), generate(baseInput())]);
