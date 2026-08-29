@@ -33,6 +33,8 @@ const TRANSPORT_ERROR_CODES = [
   "unsupported_version",
   "unknown_operation",
   "internal_failure",
+  "session_expired",
+  "save_expired",
 ] as const;
 
 function fail(error: GenerationError): Outcome<ContractPackage, GenerationError> {

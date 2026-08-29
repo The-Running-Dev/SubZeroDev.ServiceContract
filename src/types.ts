@@ -25,7 +25,9 @@ export type TransportErrorCode =
   | "malformed_payload"
   | "unsupported_version"
   | "unknown_operation"
-  | "internal_failure";
+  | "internal_failure"
+  | "session_expired"
+  | "save_expired";
 
 export type WireErrorCode = EngineErrorCode | TransportErrorCode;
 
