@@ -120,12 +120,20 @@ scales its own reasoning depth. It cannot change its own session model.
 | `/make-human-docs` | `sonnet`, `medium` | Escalate only if the design turns out to be ambiguous — then stop, do not resolve it in prose |
 | `/track` | `sonnet`, `medium` | Mechanical sync; escalate only to judge whether a drifted slice is a design change |
 | `/verify` | `sonnet`, `medium` | Escalate to deep reasoning only to diagnose a failure, never to run the gates |
+| `/code-review` | `high` by default — do not fall back to whatever level was last typed; adjudicating findings is deep-reasoning tier, `opus`/`high` | Always pass `--fix`, so findings are applied to the working tree rather than only reported. The effort argument sets how hard the review agents think, not the session model, which stays a human decision. Once `--fix` has applied changes, commit and push them per *Git and delivery*'s branch delegation — that delegation is unconditional, so a code-review fix is not a special case needing a separate ask |
 | `/pr` | `sonnet`, `medium` | — |
 | `/resolve` | `sonnet`, `medium` | Escalate to judge a contested finding, not to triage the obvious ones |
+| `/fix` | `sonnet`, `medium` | Escalate only where the fix turns out to need a contract, schema, or public-interface change — that is `/contract`'s or `/design`'s, and this command stops rather than absorbing it |
 | `/refine` | `sonnet`, `medium` | Never escalates — an architectural ask is routed to the command that owns it, not refined |
 | `/install` | `sonnet`, `medium` | — |
 | `/install-all` | `sonnet`, `medium` | Escalate only to judge whether a per-repo hard stop is actually safe to resolve — never to resolve it unattended |
+| `/install-code-review-agent` | `sonnet`, `medium` | Writes a GitHub Actions workflow file only; the GitHub App install and the API-key/OAuth-token secret are the user's own action and are never entered by the agent |
+| `/kit-sync` | `sonnet`, `medium` | Escalate only to judge whether a refused fast-forward in `~/.agent-kit` is safe to resolve — never to force past it unattended |
 | `/kit-help` | `haiku`, `low` | Orientation from file existence and a tracker listing. Escalate only where the repository's state matches no stage |
+| `/next` | `sonnet`, `medium` | Orients exactly as `/kit-help` does, then **acts** — but only where the next step is legal in this session. Where *Session boundaries* puts a fresh session in the way, it emits the banner and stops rather than crossing it. Escalate only if the next step is itself deep-reasoning tier, and then name that tier and stop rather than running it under this one |
+| `/clean` | `sonnet`, `medium` | Mechanical git housekeeping — branch switch, `--merged` check, prune. Escalate only to judge whether an unmerged-looking branch is actually safe to delete |
+| `/freeze` | `sonnet`, `medium` | `Frozen because`/`Lifts when` come from the user, never invented — ask rather than draft them |
+| `/unfreeze` | `sonnet`, `medium` for the sequencing; runs `/reconcile` (`opus`, `high`) and `/track` (`sonnet`, `medium`) as its own phases | Runs unattended, no confirmation prompt |
 
 **Never recommend re-running a phase gate.** That is a human decision. This holds outside
 `/redteam` too — see that command for its own stopping rule.
@@ -231,6 +239,20 @@ Two distinctions that are easy to get wrong:
   opening or merging pull requests, changing a domain, deploying. Discussing a decision does not
   authorize it. One carve-out — see *Tracking work*, below.
 - Do not delete files, branches, or history without explicit authorization.
+- **Deleting a local branch `/clean` independently confirms via `git branch --merged` is delegated
+  in this repository.** `/clean` (`.claude/commands/clean.md`) runs proactively — as soon as a merge
+  is on the table, not only when asked — and deletes every branch on that confirmed list without a
+  chat confirmation first; the `--merged` check is the authorization. It also may stash (never
+  discard) a dirty tree to unblock its own branch switch, and always reports the stash back rather
+  than popping it silently. **Force-deleting a squash-merged branch is delegated on the same terms**,
+  because the evidence is now as strong as `--merged`'s: `tools/Invoke-DoneHousekeeping.ps1` lists a
+  branch in `SquashMergeCandidates` only when the merged pull request exists *and* the local branch
+  tip equals that pull request's `headRefOid`, so the branch being deleted is exactly the commit that
+  merged and nothing more. A branch carrying commits the merged pull request does not account for
+  fails that comparison, is reported in `TipAheadOfMergedPr`, and is never force-deleted. This
+  delegation stops exactly where those two checks stop: a branch neither `--merged` nor the tip
+  comparison confirms, and a `-d` refusal on one that was confirmed, still need a separate ask before
+  anything stronger is considered.
 - Check review **threads**, not just requested reviewers — an automated reviewer can leave blocking
   conversation threads that do not appear in a reviewer listing. Resolve a thread only when a
   validated fix satisfies it; leave ambiguous findings open and report them.
@@ -323,3 +345,23 @@ Recorded per `SubZeroDev.AgentKit`'s `INSTALL.md` phase 4, since this repository
   here yet) and were removed on 2026-08-09 with approval: the CI-permissions lesson, the
   `prettier --check` CRLF/LF lesson, the required-status-check lesson, and the
   intermittent-test/connection-pooling lesson. The rest of the seed stands.
+- **`/kit-sync`, 2026-08-30 — the Command routing table gained eight rows** (`/code-review`, `/fix`,
+  `/install-code-review-agent`, `/kit-sync`, `/next`, `/clean`, `/freeze`, `/unfreeze`) for commands
+  that were already installed in `.claude/commands/` but undocumented here since the 2026-08-09 merge
+  only carried a subset forward. `/code-review`'s note dropped the kit's `design/FROZEN.md` clause —
+  this repository has no freeze mechanism (see the design/ note above) so that sentence would
+  dangle. Approved rather than left as the pre-existing gap.
+- **`/kit-sync`, 2026-08-30 — the `/clean` branch-deletion delegation was added**, base
+  (`--merged`-confirmed) and the kit's new squash-merge extension together. The base clause had never
+  been carried over in the 2026-08-09 merge, leaving `/clean.md`'s actual auto-delete behavior
+  undocumented against the blanket "no deletion without authorization" rule; both landed together
+  rather than adding only the new half onto a foundation that was not there.
+- **`/kit-sync`, 2026-08-30 — `Measure-Session.ps1`'s `SessionEnd`/`UserPromptSubmit` hooks were
+  installed**, creating `.claude/settings.json` (previously absent) containing only those two keys,
+  and `.claude/session-costs.tsv` was added to `.gitignore`. Approved under `INSTALL.md`'s bounded
+  hook exception; `pwsh` 7 confirmed present on `PATH`.
+- **The kit's `design/state/` record-writing sequence and its default-branch exception for derived
+  design-state records were not installed**, and the Codex tier-resolution stamp (`AGENTKIT_TIER`)
+  addition was not installed. All three apply only to mechanisms this repository does not use —
+  `design/state/` (design/ remains the untouched seed) and Codex sessions (no `.codex/` directory or
+  profile reference exists here) respectively.
