@@ -27,3 +27,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
+
+# Measure-Session.ps1 SessionEnd hook output — a convenience log, not the record;
+# transcripts are durable and a missed row is recovered by re-running the script.
+.claude/session-costs.tsv
