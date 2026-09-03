@@ -21,7 +21,7 @@ AI-specific game path.
 
 | Tool | Args | Returns |
 |---|---|---|
-| `list_campaigns` | `{}` | `CampaignSummary[]` |
+| `list_campaigns` | `{ profileId? }` | `CampaignCatalog` — the summaries and the `StringTable` that resolves their `titleKey`s |
 | `start_game` | `{ campaignId, seed?, profileId? }` | `{ sessionId, scene: Scene }` |
 | `continue_game` | `{ sessionId }` | `Scene` |
 | `get_scene` | `{ sessionId }` | `Scene` |
@@ -31,6 +31,9 @@ AI-specific game path.
 | `save_game` | `{ sessionId }` | `{ saveId }` |
 | `load_game` | `{ saveId }` | `{ sessionId, scene: Scene }` |
 | `preview_action` | `{ sessionId, actionId, params? }` | `SessionActionResult` — resolves, projects, and discards; nothing is persisted |
+| `list_saves` | `{ profileId }` | `SaveSummary[]` — this profile's saves and no other's, `savedAt` descending then `saveId` ascending |
+| `branch_session` | `{ sessionId, atActionCount }` | `{ sessionId, scene: Scene }` — a new session that replays byte-identically through the fork point; the source is untouched |
+| `delete_save` | `{ profileId, saveId, expectedSavedAt }` | nothing — removes exactly the addressed record, and refuses a stale `expectedSavedAt` |
 
 `choose` is `submitAction` — "choose" is the MCP-facing name for submitting an action,
 whatever the kind. Returns and args are the platform types above; no schema is
@@ -42,10 +45,28 @@ MCP caller choosing `audience: "ai"` would widen its own projection through ever
 `get_state` call, breaking the rule below. `McpTools` enforces this by never accepting
 the field at all, not by trusting a caller to omit it.
 
-`preview_action` is the tenth operation, added to this table by G1's S2 — the engine's
-`main` branch pins ten `SessionStore` operations (`SubZeroDev.Platform`'s
-`design/90-decisions.md`, 2026-08-08), and this table's row set is authored against that
-exact set (`src/rows.ts`).
+`preview_action` was the tenth operation, added to this table by G1's S2. The last three —
+`list_saves`, `branch_session`, `delete_save` — are the engine's 04 §7.4 session lifecycle
+operations (W99), and `list_campaigns`'s args and return type are W98's (04 §7.3): it takes an
+optional `profileId` and is asynchronous, where it used to take nothing and return a bare
+`CampaignSummary[]` synchronously. The engine pins thirteen `SessionStore` operations at
+`0.10.0`, and this table's row set is authored against that exact set (`src/rows.ts`).
+
+**No name in this table is invented here.** The engine's own `McpTools` interface
+([`src/engine/src/mcp/server.ts`](https://github.com/The-Running-Dev/SubZeroDev.GameEngine/blob/main/src/engine/src/mcp/server.ts))
+declares all thirteen with these argument shapes; this document mirrors what exists rather than
+choosing it, and the arity gate in `src/generate.ts` is what keeps the mirror from falling behind
+— a `SessionStore` method with no row fails the build.
+
+**`delete_save` is the one tool that returns nothing.** `SessionStore.deleteSave` is
+`Promise<void>`, so the projected response schema is `{"type": "null"}` — that is the projection
+of `void`, not an authored choice, and `null` is the wire spelling of it. A caller reads the
+absence of an error, not a value.
+
+**`list_saves` and `delete_save` take a `profileId` the store never verifies.** It is a scoping
+key, not a credential (04 §7.4): authenticating a caller and proving the profile is theirs is the
+host's job. An MCP host that forwards a caller-supplied `profileId` unchecked has built a
+cross-player read, and the store cannot stop it — it has no notion of a caller to stop it with.
 
 ## MCP is a sibling, not a special case
 
