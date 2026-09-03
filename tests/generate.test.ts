@@ -172,7 +172,7 @@ describe("S2.4 — closed-schema and envelope gates (unit level — generate()'s
     expect(reachesEnvelope(schema)).toBe(true);
   });
 
-  it("reachesEnvelope is false for the real generated schemas (none of the ten rows reaches GameState)", async () => {
+  it("reachesEnvelope is false for the real generated schemas (none of the thirteen rows reaches GameState)", async () => {
     const result = await generate(baseInput());
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -316,8 +316,8 @@ describe("S2.8 — one schema dialect, and ajv enforces the closed-schema gate f
   });
 });
 
-describe("Platform G2 S2.1/S2.2 — the widened status mapping (concurrent_modification, session_expired, save_expired)", () => {
-  it("emits a status mapping with nine EngineErrorCode entries and six TransportErrorCode entries", async () => {
+describe("Platform G2 S2.1/S2.2 — the widened status mapping (concurrent_modification, session_expired, save_expired, invalid_fork_point)", () => {
+  it("emits a status mapping with ten EngineErrorCode entries and six TransportErrorCode entries", async () => {
     const result = await generate(baseInput());
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -331,6 +331,7 @@ describe("Platform G2 S2.1/S2.2 — the widened status mapping (concurrent_modif
       "save_requires_migration",
       "migration_failed",
       "concurrent_modification",
+      "invalid_fork_point",
     ];
     const transportCodes = [
       "malformed_payload",
@@ -364,6 +365,156 @@ describe("Platform G2 S2.1/S2.2 — the widened status mapping (concurrent_modif
     expect(result.error.code).toBe("ErrorCodeUncovered");
     if (result.error.code === "ErrorCodeUncovered") {
       expect(result.error.wireErrorCode).toBe("concurrent_modification");
+    }
+  });
+});
+
+describe("W98/W99 — the thirteen-operation surface the re-vendored engine carries", () => {
+  const LIFECYCLE = [
+    { operation: "list-saves", storeMethod: "listSaves", mcpTool: "list_saves" },
+    { operation: "branch-session", storeMethod: "branchSession", mcpTool: "branch_session" },
+    { operation: "delete-save", storeMethod: "deleteSave", mcpTool: "delete_save" },
+  ] as const;
+
+  it("emits thirteen operations — the engine's own 09-clients.md §4 count, not a number this suite chose", async () => {
+    const engine = resolveEngine(process.cwd());
+    // Both halves matter. `engine.methods.length` is the count the arity gate actually enforces,
+    // and the literal is what makes this test fail loudly if the engine ever shrinks back —
+    // an arity gate compared only against itself can never notice a regression.
+    expect(engine.methods.length).toBe(13);
+    const result = await generate(baseInput());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.operations.length).toBe(13);
+  });
+
+  it("carries a row for each of W99's three lifecycle operations, under its engine-declared MCP tool name", async () => {
+    const result = await generate(baseInput());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    for (const expected of LIFECYCLE) {
+      const row = result.value.operations.find((r) => (r.operation as string) === expected.operation);
+      expect(row, `no row for ${expected.operation}`).toBeDefined();
+      expect(row!.storeMethod as string).toBe(expected.storeMethod);
+      expect(row!.mcpTool as string).toBe(expected.mcpTool);
+    }
+  });
+
+  it("fails with ArityMismatch naming each lifecycle method when its row is removed", async () => {
+    for (const expected of LIFECYCLE) {
+      const rows = AUTHORED_ROWS.filter((r) => (r.storeMethod as string) !== expected.storeMethod);
+      const result = await generate(baseInput({ rows }));
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.error.code).toBe("ArityMismatch");
+      if (result.error.code === "ArityMismatch") {
+        expect(result.error.method).toBe(expected.storeMethod);
+      }
+    }
+  });
+
+  it("projects each lifecycle request from the engine's own parameter names, not authored ones", async () => {
+    const result = await generate(baseInput());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const byId = new Map(result.value.schemas.map((s) => [s.$id as string, s as Record<string, unknown>]));
+    const requestProperties = (operation: string): string[] => {
+      const row = result.value.operations.find((r) => (r.operation as string) === operation)!;
+      const schema = byId.get(row.requestShape as string)!;
+      return Object.keys((schema["properties"] ?? {}) as Record<string, unknown>).sort();
+    };
+    expect(requestProperties("list-saves")).toEqual(["profileId"]);
+    expect(requestProperties("branch-session")).toEqual(["atActionCount", "sessionId"]);
+    expect(requestProperties("delete-save")).toEqual(["expectedSavedAt", "profileId", "saveId"]);
+  });
+
+  it("W98 — list-campaigns projects the async, session-free signature: an optional profileId in, a CampaignCatalog out", async () => {
+    const result = await generate(baseInput());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const byId = new Map(result.value.schemas.map((s) => [s.$id as string, s as Record<string, unknown>]));
+    const row = result.value.operations.find((r) => (r.operation as string) === "list-campaigns")!;
+
+    const request = byId.get(row.requestShape as string)!;
+    expect(Object.keys((request["properties"] ?? {}) as Record<string, unknown>)).toEqual(["profileId"]);
+    // Optional, so the catalog stays callable with no profile at all — §7.3's anonymous case.
+    expect(request["required"]).toBeUndefined();
+
+    // The pre-W98 shape was a bare `CampaignSummary[]`. A `$ref` to `CampaignCatalog` is the
+    // whole of the difference, and it is projected rather than authored — nothing in `rows.ts`
+    // names either type.
+    const response = byId.get(row.responseShape as string)!;
+    expect(response["$ref"]).toBe("#/definitions/CampaignCatalog");
+    const definitions = response["definitions"] as Record<string, Record<string, unknown>>;
+    expect(Object.keys(definitions["CampaignCatalog"]!["properties"] as object).sort()).toEqual([
+      "campaigns",
+      "strings",
+    ]);
+  });
+
+  it("ajv accepts a real listSaves response and rejects a SaveSummary carrying a blob", async () => {
+    const result = await generate(baseInput());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const ajv = new Ajv2020({ strict: false });
+    for (const schema of result.value.schemas) ajv.addSchema(schema, schema.$id);
+
+    const row = result.value.operations.find((r) => (r.operation as string) === "list-saves")!;
+    const validate = ajv.getSchema(row.responseShape)!;
+    const summary = { saveId: "s1", campaignId: "bureaucracy", savedAt: "2026-09-01T00:00:00.000Z", savedAtSeq: 4 };
+    expect(validate([summary])).toBe(true);
+    // L3 — a summary is metadata, never content. The closed-schema gate is what enforces it.
+    expect(validate([{ ...summary, blob: "{...}" }])).toBe(false);
+  });
+
+  it("invalid_fork_point maps to 409, and deleting its entry fails the coverage gate by name", async () => {
+    const result = await generate(baseInput());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const byCode = new Map(result.value.statusMapping.entries.map((e) => [e.code as string, e.status]));
+    expect(byCode.get("invalid_fork_point")).toBe(409);
+
+    const entries = STATUS_MAPPING_ENTRIES.filter((e) => e.code !== "invalid_fork_point");
+    const uncovered = await generate(baseInput({ statusMapping: { entries } }));
+    expect(uncovered.ok).toBe(false);
+    if (uncovered.ok) return;
+    expect(uncovered.error.code).toBe("ErrorCodeUncovered");
+    if (uncovered.error.code === "ErrorCodeUncovered") {
+      expect(uncovered.error.wireErrorCode).toBe("invalid_fork_point");
+    }
+  });
+
+  it("invalid_fork_point is reachable on branch-session and on nothing else", async () => {
+    const result = await generate(baseInput());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const raisers = result.value.operations
+      .filter((r) => (r.reachableErrors as string[]).includes("invalid_fork_point"))
+      .map((r) => r.operation as string);
+    expect(raisers).toEqual(["branch-session"]);
+  });
+
+  it("storage_failure is reachable on exactly the two lifecycle operations §7.4 gives it to", async () => {
+    const result = await generate(baseInput());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const raisers = result.value.operations
+      .filter((r) => (r.reachableErrors as string[]).includes("storage_failure"))
+      .map((r) => r.operation as string)
+      .sort();
+    expect(raisers).toEqual(["delete-save", "list-saves"]);
+  });
+
+  it("every reachable error a row names is a code the status mapping covers", async () => {
+    const result = await generate(baseInput());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const mapped = new Set(result.value.statusMapping.entries.map((e) => e.code as string));
+    for (const row of result.value.operations) {
+      for (const errorCode of row.reachableErrors as readonly string[]) {
+        expect(mapped.has(errorCode), `${row.operation as string} raises unmapped ${errorCode}`).toBe(true);
+      }
     }
   });
 });

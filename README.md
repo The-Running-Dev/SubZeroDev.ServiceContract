@@ -22,11 +22,19 @@ is a promise this ecosystem has broken twice — the plugin contract sat in a st
 extracted, and `SubZeroDev.Platform` held two incompatible definitions of itself because neither
 had a home forcing the question.
 
-The first boundary — the Game Engine's session surface, ten `SessionStore` operations
-(`SubZeroDev.Platform`'s G1 effort, slice S2) — now lives here: [`src/rows.ts`](src/rows.ts) is
-the authored table, [`src/generate.ts`](src/generate.ts) is the generator, and
+The first boundary — the Game Engine's session surface, thirteen `SessionStore` operations
+(`SubZeroDev.Platform`'s G1 effort, slice S2, regenerated against the engine's W98 and W99) — now
+lives here: [`src/rows.ts`](src/rows.ts) is the authored table,
+[`src/generate.ts`](src/generate.ts) is the generator, and
 [`mcp-tool-contract.md`](mcp-tool-contract.md) is the tool table, moved from
 `SubZeroDev.Platform`'s `docs/docs/`.
+
+The count is thirteen rather than the ten S2 cut because the engine grew: W99 added the three
+session lifecycle operations (`listSaves`, `branchSession`, `deleteSave`) and W98 made
+`listCampaigns` asynchronous and session-free. Neither number is stated here and maintained by
+hand — the arity gate compares the row set against the engine's own `SessionStore` declaration on
+every build, so a missing row or an extra one fails generation rather than shipping a contract
+that quietly disagrees with the engine it claims to project.
 
 The reasoning is
 [ADR-005](https://github.com/The-Running-Dev/SubZeroDev.Platform/blob/main/docs/docs/adr/ADR-005-service-contract.md)
@@ -74,12 +82,14 @@ See [`01-contract-rules.md`](01-contract-rules.md). In short:
   (`SubZeroDev.Platform` issue #81) is still open, so this repository has never actually published
   to npm — S2's publish gate is proven against a local, ephemeral registry instead
   (`tests/publish.test.ts`). Publishing for real is a follow-up once #81 closes.
-- **No GitHub Packages access to the pinned engine.** The generator resolves
-  `@the-running-dev/game-engine@0.8.0` from a vendored tarball (`vendor/`) rather than
-  `npm.pkg.github.com`, which needs a token this repository's CI does not yet have configured.
-  Unlike the `0.6.1` this replaces, `0.8.0` *is* published to GitHub Packages — so the tarball is
-  now a CI-credential workaround only, not the sole way to obtain the engine. See
-  `vendor/README.md`.
+- **No GitHub Packages access to the pinned engine, and this pin is not published at all.** The
+  generator resolves `@the-running-dev/game-engine@0.10.0` from a vendored tarball (`vendor/`)
+  rather than `npm.pkg.github.com`, which needs a token this repository's CI does not yet have
+  configured. `0.8.0`, the pin this replaces, *was* published, so its tarball was a CI-credential
+  workaround only; `0.10.0` is not published, so its tarball is `npm pack` output from
+  `SubZeroDev.GameEngine` at `b7e21e7` and is once again the only way to resolve the engine at
+  all. `npm pack` is byte-reproducible, which is what that tarball's provenance rests on instead
+  of a registry `dist.shasum`. See `vendor/README.md`.
 - **`SubZeroDev.GameEngine`'s own `09-clients.md`** still links the old `SubZeroDev.Platform`
   location — that repository had unrelated uncommitted work in progress when S2 landed, so its
   link update is a deliberate follow-up rather than bundled here.

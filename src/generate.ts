@@ -26,6 +26,7 @@ const KNOWN_ENGINE_ERROR_CODES = [
   "save_requires_migration",
   "migration_failed",
   "concurrent_modification",
+  "invalid_fork_point",
 ] as const;
 
 const TRANSPORT_ERROR_CODES = [
