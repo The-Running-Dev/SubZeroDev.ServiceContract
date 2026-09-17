@@ -1,5 +1,8 @@
 # Working in SubZeroDev.ServiceContract
 
+
+**Read [`AGENTS.shared.md`](C:/Users/Ben/.agent-kit/AGENTS.shared.md) completely before this file.** It holds the rules every repository using the kit shares.
+
 This repository holds the contracts between SubZeroDev products that run as separate processes.
 **It is depended on by products and depends on nothing.**
 
