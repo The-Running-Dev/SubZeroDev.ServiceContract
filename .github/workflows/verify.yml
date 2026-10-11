@@ -1,0 +1,27 @@
+name: verify
+
+# Pull requests and main build, test and pack the package through the shared library's
+# npm-package workflow (https://github.com/The-Running-Dev/GitHub-ActionTemplates).
+# Publishing is off: nothing is published to npm until SubZeroDev.Platform issue #81 settles
+# the @subzerodev scope (see README "What is not here yet").
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+jobs:
+  package:
+    # GitHub checks the publish and release jobs' permissions before any job runs, so they
+    # are granted even though only Build runs while publishing is off.
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    uses: The-Running-Dev/GitHub-ActionTemplates/.github/workflows/npm-package.yml@v0
+    with:
+      node-version: '24'
+      # build before test: the gates read dist/contract.json and publish.test.ts packs the build.
+      scripts: typecheck build test
+      publish: false

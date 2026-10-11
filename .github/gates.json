@@ -1,0 +1,20 @@
+{
+  "gates": [
+    {
+      "name": "package / install",
+      "command": "npm ci"
+    },
+    {
+      "name": "package / typecheck",
+      "command": "npm run typecheck"
+    },
+    {
+      "name": "package / build",
+      "command": "npm run build"
+    },
+    {
+      "name": "package / test",
+      "command": "npm run test"
+    }
+  ]
+}
