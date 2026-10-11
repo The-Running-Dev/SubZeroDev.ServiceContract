@@ -97,9 +97,12 @@ See [`01-contract-rules.md`](01-contract-rules.md). In short:
   identifier, not a fetchable URL, for the same reason the npm publish above is not real yet.
   Neither this file nor any code here should be read as claiming those schemas are actually
   served at those addresses.
-- **No CI workflow runs any of this.** `.github/` holds only `ISSUE_TEMPLATE/`. Every gate in
-  both contracts — the ten `SessionStore` invariants and the eleven content-document ones —
-  fires only when a human runs `npm run build && npm test`.
+- **CI builds and tests, but does not publish.** `.github/workflows/verify.yml` runs
+  `typecheck`, `build` and `test` — every gate in both contracts, the ten `SessionStore`
+  invariants and the eleven content-document ones — and packs the tarball on pull requests and
+  `main`, through the shared library's `npm-package.yml`. Publishing is off (`publish: false`)
+  until the npm publish above is real. `.github/gates.json` lists the same commands for a local
+  run.
 - **The content contract's `contentRoot` field is a judgment call, not an obvious fit for rule
   5's table.** It names where documents are published, which reads like "implementation," not
   "shape" — but a runtime fetcher needs a base URL, and a committed fallback copy needs to know
