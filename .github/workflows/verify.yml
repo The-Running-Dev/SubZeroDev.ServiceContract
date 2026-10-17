@@ -19,7 +19,7 @@ jobs:
       contents: write
       packages: write
       id-token: write
-    uses: The-Running-Dev/GitHub-ActionTemplates/.github/workflows/npm-package.yml@v0
+    uses: The-Running-Dev/GitHub-ActionTemplates/.github/workflows/npm-package.yml@v1
     with:
       node-version: '24'
       # build before test: the gates read dist/contract.json and publish.test.ts packs the build.
