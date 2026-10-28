@@ -50,7 +50,7 @@ the field at all, not by trusting a caller to omit it.
 operations (W99), and `list_campaigns`'s args and return type are W98's (04 §7.3): it takes an
 optional `profileId` and is asynchronous, where it used to take nothing and return a bare
 `CampaignSummary[]` synchronously. The engine pins thirteen `SessionStore` operations at
-`0.10.0`, and this table's row set is authored against that exact set (`src/rows.ts`).
+`0.12.0` (unchanged since `0.10.0`), and this table's row set is authored against that exact set (`src/rows.ts`).
 
 **No name in this table is invented here.** The engine's own `McpTools` interface
 ([`src/engine/src/mcp/server.ts`](https://github.com/The-Running-Dev/SubZeroDev.GameEngine/blob/main/src/engine/src/mcp/server.ts))

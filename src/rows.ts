@@ -1,5 +1,5 @@
 /**
- * The authored row set for the pinned engine (`@the-running-dev/game-engine@0.10.0`, thirteen
+ * The authored row set for the pinned engine (`@the-running-dev/game-engine@0.12.0`, thirteen
  * `SessionStore` operations — the engine's own `09-clients.md` §4 "API Coverage Checklist").
  * `operation` and `mcpTool` are authored, not derived: nothing in `SessionStore`'s declaration
  * says `submitAction` is `choose`, and the naming here matches the table proven in
