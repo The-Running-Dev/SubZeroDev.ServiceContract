@@ -82,13 +82,12 @@ See [`01-contract-rules.md`](01-contract-rules.md). In short:
   (`SubZeroDev.Platform` issue #81) is still open, so this repository has never actually published
   to npm — S2's publish gate is proven against a local, ephemeral registry instead
   (`tests/publish.test.ts`). Publishing for real is a follow-up once #81 closes.
-- **No GitHub Packages access to the pinned engine, and this pin is not published at all.** The
-  generator resolves `@the-running-dev/game-engine@0.12.0` from a vendored tarball (`vendor/`)
-  rather than `npm.pkg.github.com`, which needs a token this repository's CI does not yet have
-  configured. `0.12.0` is a release candidate and not published, so its tarball is `npm pack`
-  output from `SubZeroDev.GameEngine` at `9143836` and is the only way to resolve the engine at
-  all. `npm pack` is byte-reproducible, which is what that tarball's provenance rests on instead
-  of a registry `dist.shasum`. See `vendor/README.md`.
+- **No GitHub Packages access to the pinned engine.** The generator resolves
+  `@the-running-dev/game-engine@0.13.0` from a vendored tarball (`vendor/`) rather than
+  `npm.pkg.github.com`, which needs a token this repository's CI does not yet have configured.
+  `0.13.0` *is* published, so the tarball is a CI-credential workaround only: it is `npm pack`
+  output from `SubZeroDev.GameEngine` at the `v0.13.0` tag, and its sha256 matches the archive
+  digest the release workflow verified before publishing. See `vendor/README.md`.
 - **`SubZeroDev.GameEngine`'s own `09-clients.md`** still links the old `SubZeroDev.Platform`
   location — that repository had unrelated uncommitted work in progress when S2 landed, so its
   link update is a deliberate follow-up rather than bundled here.
