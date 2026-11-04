@@ -8,8 +8,8 @@ import { writeContractArtifact } from "../src/build-artifact.js";
 import { AUTHORED_ROWS, STATUS_MAPPING_ENTRIES } from "../src/rows.js";
 import type { GenerationInput } from "../src/types.js";
 
-const CONTRACT_VERSION = "0.8.0";
-const ENGINE_VERSION = "0.13.0";
+const CONTRACT_VERSION = "0.9.0";
+const ENGINE_VERSION = "0.14.0";
 const WIRE_VERSION = "v1";
 
 const input: GenerationInput = {
