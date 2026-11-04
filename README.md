@@ -83,10 +83,10 @@ See [`01-contract-rules.md`](01-contract-rules.md). In short:
   to npm — S2's publish gate is proven against a local, ephemeral registry instead
   (`tests/publish.test.ts`). Publishing for real is a follow-up once #81 closes.
 - **No GitHub Packages access to the pinned engine.** The generator resolves
-  `@the-running-dev/game-engine@0.13.0` from a vendored tarball (`vendor/`) rather than
+  `@the-running-dev/game-engine@0.14.0` from a vendored tarball (`vendor/`) rather than
   `npm.pkg.github.com`, which needs a token this repository's CI does not yet have configured.
-  `0.13.0` *is* published, so the tarball is a CI-credential workaround only: it is `npm pack`
-  output from `SubZeroDev.GameEngine` at the `v0.13.0` tag, and its sha256 matches the archive
+  `0.14.0` *is* published, so the tarball is a CI-credential workaround only: it is `npm pack`
+  output from `SubZeroDev.GameEngine` at the `v0.14.0` tag, and its sha256 matches the archive
   digest the release workflow verified before publishing. See `vendor/README.md`.
 - **`SubZeroDev.GameEngine`'s own `09-clients.md`** still links the old `SubZeroDev.Platform`
   location — that repository had unrelated uncommitted work in progress when S2 landed, so its
