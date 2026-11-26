@@ -9,13 +9,13 @@ import { writeContentContractArtifact } from "../src/build-artifact.js";
 import { AUTHORED_DOCUMENT_ROWS } from "../src/documents.js";
 import type { ContentGenerationInput } from "../src/types.js";
 
-const CONTRACT_VERSION = "0.1.0";
+const CONTRACT_VERSION = "0.2.0";
 // Must end in "v${formatVersion}" -- ContentRootVersionMismatch checks this against the
 // engine's own PortableManifest.formatVersion (currently 2, per the graduation in Phase 1).
 const CONTENT_ROOT = "https://the-running-dev.github.io/SubZeroDev.Adventures.Content/v2";
 
 const input: ContentGenerationInput = {
-  engineVersion: "0.14.0" as ContentGenerationInput["engineVersion"],
+  engineVersion: "0.15.0" as ContentGenerationInput["engineVersion"],
   contractVersion: CONTRACT_VERSION as ContentGenerationInput["contractVersion"],
   contentRoot: CONTENT_ROOT,
   rows: AUTHORED_DOCUMENT_ROWS,
