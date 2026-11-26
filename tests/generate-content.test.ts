@@ -122,6 +122,65 @@ describe("S? — generateContent produces a ContentContractPackage from the real
     30_000,
   );
 
+  it(
+    "projects the engine's published attachments: manifest `attachments` and story-graph `includes`, accepted and refused",
+    async () => {
+      const result = await generateContent(baseInput());
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const ajv = new Ajv2020({ strict: false });
+      const validateManifest = ajv.compile(
+        result.value.schemas.find((s) => (s.$id as string).endsWith("/manifest.json")),
+      );
+      const validateCampaign = ajv.compile(
+        result.value.schemas.find((s) => (s.$id as string).endsWith("/campaign.json")),
+      );
+
+      const include = { alias: "side", ref: { id: "side", version: "1.0.0" }, binding: { exits: { done: "host_end" } } };
+      const attachment = {
+        kindId: "story-graph",
+        hostCampaignId: "host",
+        include,
+        payload: { hostNodeId: "intro", choice: { id: "what_was_that", labelKey: "host.what_was_that" } },
+      };
+      const manifest = {
+        formatVersion: 2,
+        campaigns: [{ file: "host.json", id: "host", version: "1.0.0", digest: "sha-256:abc" }],
+        resolution: "sha-256:def",
+        attachments: [attachment],
+      };
+      expect(validateManifest(manifest)).toBe(true);
+
+      // Each refusal is a shape the engine's own types rule out.
+      const refusedManifests = [
+        { ...manifest, attachments: [{ ...attachment, kindId: "world-graph" }] },
+        { ...manifest, attachments: [{ ...attachment, include: { ...include, binding: {} } }] },
+        { ...manifest, attachments: [{ ...attachment, payload: { ...attachment.payload, choice: { ...attachment.payload.choice, goto: "x" } } }] },
+        { ...manifest, attachments: [{ ...attachment, unexpected: true }] },
+      ];
+      expect(refusedManifests.map((m) => validateManifest(m))).toEqual([false, false, false, false]);
+
+      const campaign = {
+        formatVersion: 2,
+        catalog: { title: "T", description: "D", duration: "1h", contentNotice: "N", featured: false },
+        campaign: {
+          id: "host",
+          kindId: "story-graph",
+          version: "1.0.0",
+          titleKey: "host.title",
+          includes: [include],
+          content: { descriptionKey: "host.desc", variables: {}, nodes: {}, startNodeId: "start", achievements: [] },
+        },
+        strings: { "host.title": "Host" },
+      };
+      expect(validateCampaign(campaign)).toBe(true);
+      expect(
+        validateCampaign({ ...campaign, campaign: { ...campaign.campaign, includes: [{ alias: "side", ref: include.ref }] } }),
+      ).toBe(false);
+    },
+    30_000,
+  );
+
   it("writes content-contract.json and nothing on failure (mirrors S2.2 for the RPC contract)", async () => {
     const dir = mkdtempSync(join(tmpdir(), "content-contract-artifact-"));
     try {
